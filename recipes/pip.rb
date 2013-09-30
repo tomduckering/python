@@ -45,10 +45,16 @@ remote_file "#{Chef::Config[:file_cache_path]}/get-pip.py" do
   not_if { ::File.exists?(pip_binary) }
 end
 
+download_base_option = if node['python']['setuptools_download_base']
+                         "--download-base #{node['python']['setuptools_download_base']}"
+                       else
+                         ""
+                       end
+
 execute "install-setuptools" do
   cwd Chef::Config[:file_cache_path]
   command <<-EOF
-  #{node['python']['binary']} ez_setup.py
+  #{node['python']['binary']} ez_setup.py #{download_base_option}
   EOF
   not_if "#{node['python']['binary']} -c 'import setuptools'"
 end
@@ -58,5 +64,13 @@ execute "install-pip" do
   command <<-EOF
   #{node['python']['binary']} get-pip.py
   EOF
-  not_if { ::File.exists?(pip_binary) }
+  not_if { ::File.exists?(pip_binary) || node['python']['pip_package_url'] }
+end
+
+execute "install-pip from URL" do
+  cwd Chef::Config[:file_cache_path]
+  command <<-EOF
+easy_install #{node['python']['pip_package_url']}
+  EOF
+  only_if { ! ::File.exists?(pip_binary) && node['python']['pip_package_url'] }
 end
